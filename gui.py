@@ -1,4 +1,5 @@
 import tkinter as tk
+import random
 from tkinter import ttk
 from ttkthemes import ThemedTk
 from spotify_api import SpotifyAPI
@@ -17,13 +18,18 @@ class GUI:
         self.root.iconbitmap('assets/main-icon.ico')
 
         # Create the song input widget
-        self.search_entry = IconEntry(self.root, "assets/search.png", "Get recommendations for specific song")
-        self.search_entry.grid(row=0, column=0, sticky='w')
-        self.search_entry.entry.bind("<Return>", self.on_enter_pressed)
+        self.song_search_entry = IconEntry(self.root, "assets/search.png", "Get recommendations for specific song")
+        self.song_search_entry.grid(row=0, column=0, sticky='w')
+        self.song_search_entry.entry.bind("<Return>", self.on_song_enter_pressed)
+
+        # Create the artist input widget
+        self.artist_search_entry = IconEntry(self.root, "assets/artist.png", "Get recommendations for specific artist")
+        self.artist_search_entry.grid(row=1, column=0, sticky='w')
+        self.artist_search_entry.entry.bind("<Return>", self.on_artist_enter_pressed)
 
         # Create the genre selection widgets
         self.genre_combobox = IconCombobox(self.root, "assets/genre.png", self.spotify_api.available_genres, "Get recommendations for specific genre")
-        self.genre_combobox.grid(row=1, column=0, sticky='w')
+        self.genre_combobox.grid(row=2, column=0, sticky='w')
         self.genre_combobox.combobox.bind("<<ComboboxSelected>>", self.on_genre_selected)
 
         # Create the liked songs widgets
@@ -43,7 +49,7 @@ class GUI:
         self.num_songs_spinbox.bind("<Return>", self.on_spinbox_value_changed)
 
         # Create the recommendations output widgets
-        self.recommendations_label = ttk.Label(self.root, text="Recommendations:")
+        self.recommendations_label = ttk.Label(self.root, text="Recommendations:", font=("Default", 16))
         self.recommendations_label.grid(row=3, column=0, sticky='w')
         self.recommendations_text = tk.Text(self.root, height=15, width=70, wrap=tk.WORD)
         self.recommendations_text.config(state=tk.DISABLED) # Make the text widget read-only
@@ -55,8 +61,23 @@ class GUI:
 
         self.executor = ThreadPoolExecutor(max_workers=1)
         
+        # Use the ThreadPoolExecutor to run load_data in a separate thread
+        self.progressbar.start()
+        self.executor.submit(self.load_data)
         # Start the event loop
         self.root.mainloop()
+
+    def load_data(self):
+        # Load data here
+        self.spotify_api.get_liked_songs()
+        self.spotify_api.get_available_genres()
+        # Schedule the update_genres method to run in the main thread
+        self.root.after(0, self.update_genres)
+
+    def update_genres(self):
+        # Update the combobox with the loaded genres
+        self.genre_combobox.combobox['values'] = self.spotify_api.available_genres
+        self.progressbar.stop()
 
     def on_spinbox_value_changed(self, event=None):
         self.num_songs_spinbox.master.focus()
@@ -86,28 +107,45 @@ class GUI:
     def toggle_like(self):
         self.liked_songs_button.toggle()
         # Reset other inputs
-        self.search_entry.entry.delete(0, tk.END)
+        self.artist_search_entry.entry.delete(0, tk.END)
+        self.song_search_entry.entry.delete(0, tk.END)
         self.genre_combobox.combobox.delete(0, tk.END)
         self.genre_combobox.set_placeholder(None)
-        self.search_entry.entry.add_placeholder(None)   
+        self.song_search_entry.entry.add_placeholder(None) 
+        self.artist_search_entry.entry.add_placeholder(None)  
 
-    def on_enter_pressed(self, event):
+        # If the liked_songs_button is toggled on, draw a track randomly from the liked songs
+        if self.liked_songs_button.button.image == self.liked_songs_button.on_image:
+            # Clear the text
+            self.recommendations_text.config(state=tk.NORMAL)
+            self.recommendations_text.delete('1.0', tk.END)
+            self.recommendations_text.config(state=tk.DISABLED)
+            # Get a random track from the liked songs
+            liked_songs = self.spotify_api.get_liked_songs()
+            seed_track = random.choice(liked_songs)
+            future = self.executor.submit(self.spotify_api.get_recommendations_based_on_song, seed_track)
+            self.progressbar.start()
+            self.root.after(100, self.check_future, future)
+
+    def on_song_enter_pressed(self, event):
         # Reset other inputs
         if self.liked_songs_button.button.image == self.liked_songs_button.on_image:
             self.liked_songs_button.toggle()
         self.genre_combobox.combobox.delete(0, tk.END)
         self.genre_combobox.set_placeholder(None)
+        self.artist_search_entry.entry.delete(0, tk.END)
+        self.artist_search_entry.entry.add_placeholder(None)
 
         # Get the song name from the entry
-        self.search_entry.master.focus()
-        song_name = self.search_entry.get()
+        self.song_search_entry.master.focus()
+        song_name = self.song_search_entry.get()
         song_id, warning = self.spotify_api.get_song_id(song_name)
 
-        # Clear the listbox
+        # Clear the text
         self.recommendations_text.config(state=tk.NORMAL)
         self.recommendations_text.delete('1.0', tk.END)
 
-        # If there's a warning, insert it into the listbox
+        # If there's a warning, insert it into the text
         if warning:
             self.recommendations_text.insert(tk.END, warning + '\n')
 
@@ -120,18 +158,51 @@ class GUI:
         self.progressbar.start()
         self.root.after(100, self.check_future, future)  
 
+    def on_artist_enter_pressed(self, event):
+        # Reset other inputs
+        if self.liked_songs_button.button.image == self.liked_songs_button.on_image:
+            self.liked_songs_button.toggle()
+        self.genre_combobox.combobox.delete(0, tk.END)
+        self.genre_combobox.set_placeholder(None)
+        self.song_search_entry.entry.delete(0, tk.END)
+        self.song_search_entry.entry.add_placeholder(None)
+
+        # Get the song name from the entry
+        self.artist_search_entry.master.focus()
+        artist_name = self.artist_search_entry.get()
+        artist_id, warning = self.spotify_api.get_artist_id(artist_name)
+
+        # Clear the text
+        self.recommendations_text.config(state=tk.NORMAL)
+        self.recommendations_text.delete('1.0', tk.END)
+
+        # If there's a warning, insert it into the text
+        if warning:
+            self.recommendations_text.insert(tk.END, warning + '\n')
+
+        self.recommendations_text.config(state=tk.DISABLED)
+
+        if artist_id is None:
+            return
+
+        future = self.executor.submit(self.spotify_api.get_recommendations_based_on_artist, artist_id)
+        self.progressbar.start()
+        self.root.after(100, self.check_future, future)
+
     def on_genre_selected(self, event):
         # Reset other inputs
         if self.liked_songs_button.button.image == self.liked_songs_button.on_image:
             self.liked_songs_button.toggle()
-        self.search_entry.entry.delete(0, tk.END)
-        self.search_entry.entry.add_placeholder(None)
+        self.song_search_entry.entry.delete(0, tk.END)
+        self.song_search_entry.entry.add_placeholder(None)
+        self.artist_search_entry.entry.delete(0, tk.END)
+        self.artist_search_entry.entry.add_placeholder(None)
 
         # Get the genre from the combobox
         self.genre_combobox.master.focus()
         genre = self.genre_combobox.get()
 
-        # Clear the listbox
+        # Clear the text
         self.recommendations_text.config(state=tk.NORMAL)
         self.recommendations_text.delete('1.0', tk.END)
 

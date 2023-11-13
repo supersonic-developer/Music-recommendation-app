@@ -13,6 +13,7 @@ class IconCombobox(ttk.Frame):
         self.icon_label.grid(row=0, column=0)
 
         # Create the combobox
+        self.placeholder = placeholder
         self.combobox = ttk.Combobox(self, values=[placeholder] + values, width=33, **kwargs)
         self.combobox.grid(row=0, column=1, sticky='ew')
         self.combobox.set(placeholder)
@@ -21,13 +22,13 @@ class IconCombobox(ttk.Frame):
         self.combobox.configure(foreground="grey")
     
     def clear_placeholder(self, event):
-        if self.combobox.get() == self.combobox['values'][0]:  # If the current value is the placeholder
+        if self.combobox.get() == self.placeholder:  # If the current value is the placeholder
             self.combobox.set('')  # Clear it
             self.combobox.configure(foreground="black")
 
     def set_placeholder(self, event):
         if self.combobox.get() == '':  # If the combobox is empty
-            self.combobox.set(self.combobox['values'][0])  # Set the placeholder
+            self.combobox.set(self.placeholder)  # Set the placeholder
             self.combobox.configure(foreground="grey")
 
     def get(self):
