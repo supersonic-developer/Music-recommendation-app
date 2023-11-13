@@ -44,12 +44,10 @@ class SpotifyAPI:
 
     def extract_track_data(self, results):
         tracks_data = []
-        i = 0
         for track in results['tracks']:
-            i += 1
             track_name = track['name']
             artist_name = track['artists'][0]['name']
-            formatted_data = f"{i}. {track_name} - {artist_name}"
+            formatted_data = f"{track_name} - {artist_name}"
             tracks_data.append(formatted_data)
         return tracks_data
     
@@ -84,17 +82,20 @@ class SpotifyAPI:
     def get_recommendations_based_on_song(self, song_id):
         results = self.sp.recommendations(seed_tracks=[song_id], limit=self.num_of_recommendations)
         tracks_data = self.extract_track_data(results)
-        return tracks_data
+        track_ids = [track['id'] for track in results['tracks']]
+        return tracks_data, track_ids
     
     def get_recommendations_based_on_artist(self, artist_id):
         results = self.sp.recommendations(seed_artists=[artist_id], limit=self.num_of_recommendations)
         tracks_data = self.extract_track_data(results)
-        return tracks_data
+        track_ids = [track['id'] for track in results['tracks']]
+        return tracks_data, track_ids
     
     def get_recommendations_based_on_genre(self, genre):
         results = self.sp.recommendations(seed_genres=[genre], limit=self.num_of_recommendations)
         tracks_data = self.extract_track_data(results)
-        return tracks_data
+        track_ids = [track['id'] for track in results['tracks']]
+        return tracks_data, track_ids
     
     def get_available_genres(self):
         # Create the data directory if it doesn't exist

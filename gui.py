@@ -1,5 +1,6 @@
 import tkinter as tk
 import random
+import webbrowser
 from tkinter import ttk
 from ttkthemes import ThemedTk
 from spotify_api import SpotifyAPI
@@ -51,9 +52,14 @@ class GUI:
         # Create the recommendations output widgets
         self.recommendations_label = ttk.Label(self.root, text="Recommendations:", font=("Default", 16))
         self.recommendations_label.grid(row=3, column=0, sticky='w')
-        self.recommendations_text = tk.Text(self.root, height=15, width=70, wrap=tk.WORD)
+        self.frame = ttk.Frame(self.root)
+        self.frame.grid(row=4, column=0, columnspan=3)
+        self.scrollbar = ttk.Scrollbar(self.frame)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.recommendations_text = tk.Text(self.frame, yscrollcommand=self.scrollbar.set, cursor='hand2', height=15, width=70, wrap=tk.WORD)
+        self.recommendations_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.scrollbar.config(command=self.recommendations_text.yview)
         self.recommendations_text.config(state=tk.DISABLED) # Make the text widget read-only
-        self.recommendations_text.grid(row=4, column=0, columnspan=3)
 
         # Create the progress bar widget
         self.progressbar = ttk.Progressbar(self.root, mode='indeterminate')
@@ -212,11 +218,18 @@ class GUI:
 
     def check_future(self, future):
         if future.done():
-            recommendations = future.result()
+            recommendations, track_ids = future.result()
             self.recommendations_text.config(state=tk.NORMAL)
-            # Add the recommendations to the listbox
-            for recommendation in recommendations:
-                self.recommendations_text.insert(tk.END, recommendation + '\n')
+            # Add the recommendations to the text widget
+            for i, (recommendation, track_id) in enumerate(zip(recommendations, track_ids), start=1):
+                # Insert the index without the link tag
+                self.recommendations_text.insert(tk.END, f'{i}. ')
+                # Insert the name and artist with the link tag
+                link = f'https://open.spotify.com/track/{track_id}'
+                self.recommendations_text.insert(tk.END, recommendation, link)
+                self.recommendations_text.insert(tk.END, '\n')
+                self.recommendations_text.tag_config(link, foreground='blue', underline=1)
+                self.recommendations_text.tag_bind(link, '<Button-1>', lambda e, link=link: webbrowser.open_new(link))
             self.recommendations_text.config(state=tk.DISABLED)
             self.progressbar.stop()
         else:
