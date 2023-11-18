@@ -1,4 +1,5 @@
 import tkinter as tk
+import os
 import random
 import webbrowser
 from tkinter import ttk
@@ -12,6 +13,9 @@ from concurrent.futures import ThreadPoolExecutor
 class GUI:
     def __init__(self):
         self.spotify_api = SpotifyAPI()
+        # Create the data directory if it doesn't exist
+        if not os.path.exists('data'):
+            os.mkdir('data')
 
         # Create the main window
         self.root = ThemedTk(theme="breeze")

@@ -98,10 +98,10 @@ class SpotifyAPI:
         return tracks_data, track_ids
     
     def get_available_genres(self):
-        # Create the data directory if it doesn't exist
-        if not os.path.exists('data'):
-            os.makedirs('data')
-
+        # If genres have already been fetched, return them
+        if self.available_genres:
+            return self.available_genres
+        
         # Check if the genres are available in a local file
         if os.path.exists('data/genres.json'):
             with open('data/genres.json', 'r') as f:
