@@ -6,8 +6,8 @@ from spotipy.oauth2 import SpotifyOAuth
 
 class SpotifyAPI:
     def __init__(self, num_of_recommendations=5):
-        self.client_id = '21f92c97d58e4bf4ac44199f64c69185'
-        self.client_secret = '7c1eccf7a2644c67a1c4488918c78c46'
+        self.client_id = os.environ.get('SPOTIFY_CLIENT_ID')
+        self.client_secret = os.environ.get('SPOTIFY_CLIENT_SECRET')
         self.redirect_uri = 'http://localhost:8080/callback'
         self.scope = 'user-library-read playlist-read-private playlist-read-collaborative'
         self.sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=self.client_id, client_secret=self.client_secret, redirect_uri=self.redirect_uri, scope=self.scope))       
