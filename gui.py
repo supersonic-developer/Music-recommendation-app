@@ -72,22 +72,30 @@ class GUI:
         self.executor = ThreadPoolExecutor(max_workers=1)
         
         # Use the ThreadPoolExecutor to run load_data in a separate thread
-        self.progressbar.start()
         self.executor.submit(self.load_data)
+        self.progressbar.start()
         # Start the event loop
         self.root.mainloop()
 
     def load_data(self):
-        # Load data here
-        self.spotify_api.get_liked_songs()
         self.spotify_api.get_available_genres()
         # Schedule the update_genres method to run in the main thread
-        self.root.after(0, self.update_genres)
+        self.root.after(0, lambda: self.genre_combobox.combobox.configure(values=self.spotify_api.available_genres))
 
-    def update_genres(self):
-        # Update the combobox with the loaded genres
-        self.genre_combobox.combobox['values'] = self.spotify_api.available_genres
-        self.progressbar.stop()
+        # Load data here
+        try:
+            self.spotify_api.get_liked_songs()
+        except Exception as e:
+            self.root.after(0, self.display_error_message, str(e))    
+
+        # Stop the progress bar
+        self.root.after(0, self.progressbar.stop)   
+
+    def display_error_message(self, message):
+        self.recommendations_text.config(state=tk.NORMAL)
+        self.recommendations_text.delete('1.0', tk.END) 
+        self.recommendations_text.insert(tk.END, message)  
+        self.recommendations_text.config(state=tk.DISABLED) 
 
     def on_spinbox_value_changed(self, event=None):
         self.num_songs_spinbox.master.focus()
@@ -131,8 +139,14 @@ class GUI:
             self.recommendations_text.delete('1.0', tk.END)
             self.recommendations_text.config(state=tk.DISABLED)
             # Get a random track from the liked songs
-            liked_songs = self.spotify_api.get_liked_songs()
-            seed_track = random.choice(liked_songs)
+            if self.spotify_api.liked_songs:
+                seed_track = random.choice(self.spotify_api.liked_songs)
+            else:
+                self.recommendations_text.config(state=tk.NORMAL)
+                self.recommendations_text.delete('1.0', tk.END)
+                self.recommendations_text.insert(tk.END, "Warning: No liked songs found.")
+                self.recommendations_text.config(state=tk.DISABLED)
+                return
             future = self.executor.submit(self.spotify_api.get_recommendations_based_on_song, seed_track)
             self.progressbar.start()
             self.root.after(100, self.check_future, future)
